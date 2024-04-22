@@ -23,18 +23,18 @@ impl FixMessageBuilder {
     ) -> Result<Self, FixSerializeError> {
         let tags = split_fix_to_tags(payload);
 
-        let Some(version) = tags.get(FIX_VERSION) else{
+        let Some(version) = tags.get(FIX_VERSION) else {
             println!(
                 "Tag not found: {:?}. Str: {}",
-                payload.clone(),
-                String::from_utf8(payload.clone().to_vec()).unwrap()
+                payload,
+                std::str::from_utf8(&payload).unwrap()
             );
 
             return Err(FixSerializeError::VersionTagNotFoundInSource);
         };
 
-        let Some(message_type) = tags.get(FIX_MESSAGE_TYPE) else{
-            return Err(FixSerializeError::MessageTypeTagNotFoundInSource)
+        let Some(message_type) = tags.get(FIX_MESSAGE_TYPE) else {
+            return Err(FixSerializeError::MessageTypeTagNotFoundInSource);
         };
 
         let source_check_sum = tags.get(FIX_CHECK_SUM);
