@@ -1,13 +1,7 @@
 use crate::{
-    split_fix_to_tags,
-    utils::{bytes_to_fix_string, calculate_check_sum, compile_fix_chunk},
+    utils::{bytes_to_fix_string, calculate_check_sum, compile_fix_chunk, split_fix_to_tags},
     FixSerializeError,
 };
-
-pub const FIX_VERSION: &[u8] = b"8";
-pub const FIX_BODY_LEN: &[u8] = b"9";
-pub const FIX_CHECK_SUM: &[u8] = b"10";
-pub const FIX_MESSAGE_TYPE: &[u8] = b"35";
 
 #[derive(Clone)]
 pub struct FixMessageBuilder {
@@ -23,24 +17,24 @@ impl FixMessageBuilder {
     ) -> Result<Self, FixSerializeError> {
         let tags = split_fix_to_tags(payload);
 
-        let Some(version) = tags.get(FIX_VERSION) else {
+        let Some(version) = tags.get(crate::utils::FIX_VERSION.as_bytes()) else {
             println!(
                 "Tag not found: {:?}. Str: {}",
                 payload,
-                std::str::from_utf8(&payload).unwrap()
+                std::str::from_utf8(payload).unwrap()
             );
 
-            return Err(FixSerializeError::VersionTagNotFoundInSource);
+            return Err(FixSerializeError::VersionTagNotFound);
         };
 
-        let Some(message_type) = tags.get(FIX_MESSAGE_TYPE) else {
-            return Err(FixSerializeError::MessageTypeTagNotFoundInSource);
+        let Some(message_type) = tags.get(crate::utils::FIX_MESSAGE_TYPE.as_bytes()) else {
+            return Err(FixSerializeError::MessageTypeTagNotFound);
         };
 
-        let source_check_sum = tags.get(FIX_CHECK_SUM);
+        let source_check_sum = tags.get(crate::utils::FIX_CHECK_SUM.as_bytes());
 
         if check_sum_validation == true && source_check_sum.is_none() {
-            return Err(FixSerializeError::CheckSumTagNotFoundInSource);
+            return Err(FixSerializeError::CheckSumTagNotFound);
         }
 
         let version = version.first().unwrap();
@@ -52,7 +46,11 @@ impl FixMessageBuilder {
             data: vec![],
         };
 
-        let to_skip = vec![FIX_BODY_LEN, FIX_VERSION, FIX_CHECK_SUM];
+        let to_skip = vec![
+            crate::utils::FIX_BODY_LEN.as_bytes(),
+            crate::utils::FIX_VERSION.as_bytes(),
+            crate::utils::FIX_CHECK_SUM.as_bytes(),
+        ];
 
         for (tag, values) in &tags {
             for value in values {
@@ -171,18 +169,18 @@ impl FixMessageBuilder {
     }
 
     fn compile_message(&self) -> Vec<u8> {
-        let mut result = compile_fix_chunk(FIX_VERSION, &self.fix_version);
+        let mut result = compile_fix_chunk(crate::utils::FIX_VERSION.as_bytes(), &self.fix_version);
 
         let (body_len, body) = self.compile_body();
 
         result.extend_from_slice(&compile_fix_chunk(
-            FIX_BODY_LEN,
+            crate::utils::FIX_BODY_LEN.as_bytes(),
             body_len.to_string().as_bytes(),
         ));
         result.extend_from_slice(&body);
 
         result.extend_from_slice(&compile_fix_chunk(
-            FIX_CHECK_SUM,
+            crate::utils::FIX_CHECK_SUM.as_bytes(),
             calculate_check_sum(&result).as_bytes(),
         ));
 
@@ -190,12 +188,12 @@ impl FixMessageBuilder {
     }
 
     fn calculate_check_sum(&self) -> String {
-        let mut result = compile_fix_chunk(FIX_VERSION, &self.fix_version);
+        let mut result = compile_fix_chunk(crate::utils::FIX_VERSION.as_bytes(), &self.fix_version);
 
         let (body_len, body) = self.compile_body();
 
         result.extend_from_slice(&compile_fix_chunk(
-            FIX_BODY_LEN,
+            crate::utils::FIX_BODY_LEN.as_bytes(),
             body_len.to_string().as_bytes(),
         ));
         result.extend_from_slice(&body);
@@ -204,7 +202,10 @@ impl FixMessageBuilder {
     }
 
     fn compile_body(&self) -> (usize, Vec<u8>) {
-        let mut body: Vec<u8> = compile_fix_chunk(FIX_MESSAGE_TYPE, &self.message_type);
+        let mut body: Vec<u8> = compile_fix_chunk(
+            crate::utils::FIX_MESSAGE_TYPE.as_bytes(),
+            &self.message_type,
+        );
 
         for (key, value) in &self.data {
             let data_to_insert = compile_fix_chunk(key, value);
@@ -252,7 +253,7 @@ mod test {
 
         assert_eq!(true, builder.is_err());
         assert_eq!(
-            FixSerializeError::VersionTagNotFoundInSource as i32,
+            FixSerializeError::VersionTagNotFound as i32,
             builder.err().unwrap() as i32
         );
     }
@@ -265,7 +266,7 @@ mod test {
 
         assert_eq!(true, builder.is_err());
         assert_eq!(
-            FixSerializeError::MessageTypeTagNotFoundInSource as i32,
+            FixSerializeError::MessageTypeTagNotFound as i32,
             builder.err().unwrap() as i32
         );
     }
@@ -278,7 +279,7 @@ mod test {
 
         assert_eq!(true, builder.is_err());
         assert_eq!(
-            FixSerializeError::CheckSumTagNotFoundInSource as i32,
+            FixSerializeError::CheckSumTagNotFound as i32,
             builder.err().unwrap() as i32
         );
     }

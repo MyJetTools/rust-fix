@@ -1,7 +1,15 @@
 use std::collections::HashMap;
 
 pub const FIX_EQUALS: u8 = 0x3d;
-pub const FIX_DELIMETR: u8 = 0x1;
+pub const FIX_DELIMITER: u8 = 0x1;
+
+pub const FIX_EQUALS_STR: char = '=';
+pub const FIX_DELIMITER_STR: char = '|';
+
+pub const FIX_VERSION: &str = "8";
+pub const FIX_BODY_LEN: &str = "9";
+pub const FIX_CHECK_SUM: &str = "10";
+pub const FIX_MESSAGE_TYPE: &str = "35";
 
 pub fn calculate_check_sum(body: &[u8]) -> String {
     let mut sum = 0u8;
@@ -18,16 +26,27 @@ pub fn compile_fix_chunk(key: &[u8], value: &[u8]) -> Vec<u8> {
     result.extend_from_slice(key);
     result.extend_from_slice(&vec![FIX_EQUALS]);
     result.extend_from_slice(&value);
-    result.extend_from_slice(&vec![FIX_DELIMETR]);
+    result.extend_from_slice(&vec![FIX_DELIMITER]);
 
     return result;
+}
+
+pub fn write_fix_chunk(out: &mut Vec<u8>, key: &str, value: &str) {
+    out.extend_from_slice(key.as_bytes());
+    out.push(FIX_EQUALS);
+    out.extend_from_slice(value.as_bytes());
+    out.push(FIX_DELIMITER);
+}
+
+pub fn write_body_len(out: &mut Vec<u8>, body_len: usize) {
+    write_fix_chunk(out, FIX_BODY_LEN, body_len.to_string().as_str())
 }
 
 pub fn bytes_to_fix_string(data: &[u8]) -> String {
     let mut str = vec![];
 
     for byte in data {
-        if byte == &FIX_DELIMETR {
+        if byte == &FIX_DELIMITER {
             str.extend_from_slice(b"|");
         } else {
             str.push(*byte);
@@ -44,9 +63,8 @@ pub fn split_fix_to_tags(fix: &[u8]) -> HashMap<Vec<u8>, Vec<Vec<u8>>> {
     let mut is_equals_raised = false;
 
     for byte in fix {
-        if byte == &FIX_DELIMETR {
-
-            if let Some(data_to_insert) = result.get_mut(&key_buffer){
+        if byte == &FIX_DELIMITER {
+            if let Some(data_to_insert) = result.get_mut(&key_buffer) {
                 data_to_insert.push(value_buffer.clone());
             } else {
                 result.insert(key_buffer.clone(), vec![value_buffer.clone()]);
@@ -72,6 +90,16 @@ pub fn split_fix_to_tags(fix: &[u8]) -> HashMap<Vec<u8>, Vec<Vec<u8>>> {
     return result;
 }
 
+pub fn convert_fix_message_to_string(mut src: Vec<u8>) -> String {
+    for i in 0..src.len() {
+        if src[i] == FIX_DELIMITER {
+            src[i] = FIX_DELIMITER_STR as u8
+        }
+    }
+
+    String::from_utf8(src).unwrap()
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -86,7 +114,7 @@ mod test {
         let result = compile_fix_chunk(key, value);
 
         assert_eq!(bytes, &result[..9]);
-        assert_eq!(&vec![FIX_DELIMETR], &result[9..10]);
+        assert_eq!(&vec![FIX_DELIMITER], &result[9..10]);
     }
 
     #[test]
@@ -123,7 +151,7 @@ mod test {
         let mut result = vec![];
         for itm in data {
             result.extend_from_slice(itm.as_bytes());
-            result.extend_from_slice(&vec![FIX_DELIMETR]);
+            result.extend_from_slice(&vec![FIX_DELIMITER]);
         }
 
         return result;
