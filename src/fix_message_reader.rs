@@ -18,7 +18,7 @@ impl<'s> FixMessageReader<'s> {
         Self::AsBytes(data)
     }
 
-    fn get_iterator(&'s self) -> FixMessageIterator<'s> {
+    pub fn iter(&'s self) -> FixMessageIterator<'s> {
         match &self {
             Self::AsStr(src) => FixMessageIterator::from_str(src),
             Self::AsBytes(src) => FixMessageIterator::from_slice(src),
@@ -34,7 +34,7 @@ impl<'s> FixMessageReader<'s> {
 
         let mut body_builder = FixMessageBodyBuilder::new();
 
-        for itm in self.get_iterator() {
+        for itm in self.iter() {
             let itm = itm?;
 
             match itm.key {
@@ -82,7 +82,7 @@ impl<'s> FixMessageReader<'s> {
     }
 
     pub fn get_value(&self, key: &str) -> Result<Option<&str>, FixSerializeError> {
-        for itm in self.get_iterator() {
+        for itm in self.iter() {
             let itm = itm?;
 
             if itm.key == key {
@@ -95,7 +95,7 @@ impl<'s> FixMessageReader<'s> {
 
     pub fn get_values(&self, key: &str) -> Result<Vec<&str>, FixSerializeError> {
         let mut result = Vec::new();
-        for itm in self.get_iterator() {
+        for itm in self.iter() {
             let itm = itm?;
 
             if itm.key == key {
